@@ -5,7 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 void main() {
   runApp(
     MaterialApp(
-      title: 'D-ID WebRTC Integration',
+      title: 'D-ID Streaming Integration',
       home: WebRTCWebView(),
     ),
   );
@@ -24,8 +24,7 @@ class _WebRTCWebViewState extends State<WebRTCWebView> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+    _controller = WebViewController();
     _loadHtml();
   }
 
@@ -41,21 +40,35 @@ class _WebRTCWebViewState extends State<WebRTCWebView> {
   }
 
   Future<void> _loadHtml() async {
-    final htmlString = await rootBundle.loadString('assets/index.html');
-    final jsString = await rootBundle.loadString('assets/streaming-client-api.js');
-    final jsonString = await rootBundle.loadString('assets/api.json');
+    final html = await rootBundle.loadString('assets/index.html');
+    final sdkJs = await rootBundle.loadString('assets/sdk.js');
+    final mainJs = await rootBundle.loadString('assets/main.js');
+    final css = await rootBundle.loadString('assets/style.css');
+    final webSpeechJs = await rootBundle.loadString('assets/webSpeechAPI.js');
 
-    final modifiedHtml = htmlString
+    final modifiedHtml = html
         .replaceFirst(
-        '<script type="module" src="./streaming-client-api.js"></script>',
-        '''
-      <script type="module">
-        window.APP_CONFIG = ${jsonString};
-        ${jsString}
-      </script>
+          '<link rel="stylesheet" href="style.css">',
+          '<style>$css</style>',
+        )
+        .replaceFirst(
+          '<script src="sdk.js"></script>',
+          '<script>$sdkJs</script>',
+        )
+        .replaceFirst(
+      '<script src="main.js"></script>',
       '''
+    <script>
+      (async () => {
+        ${mainJs.replaceFirst('let agentManager = await sdk.createAgentManager', 'window.agentManager = await sdk.createAgentManager')}
+      })();
+    </script>
+    ''',
+    ).replaceFirst(
+      '<script src="webSpeechAPI.js"></script>',
+      '<script>$webSpeechJs</script>',
     );
 
-    _controller.loadHtmlString(modifiedHtml);
+    await _controller.loadHtmlString(modifiedHtml);
   }
 }
