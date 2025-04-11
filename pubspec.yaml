@@ -36,7 +36,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   webview_flutter: ^4.10.0
   webview_flutter_web: ^0.2.3+4
-  flutter_secure_storage: ^8.0.0
 
 dev_dependencies:
   flutter_test:
@@ -56,10 +55,9 @@ dev_dependencies:
 flutter:
   assets:
     - assets/index.html
-    - assets/style.css
-    - assets/sdk.js
-    - assets/main.js
-    - assets/webSpeechAPI.js
+    - assets/style-agents.css
+    - assets/api.json
+    - assets/agents-client-api.js
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

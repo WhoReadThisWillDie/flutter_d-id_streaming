@@ -5,7 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 void main() {
   runApp(
     MaterialApp(
-      title: 'D-ID Streaming Integration',
+      title: 'D-ID WebRTC Integration',
       home: WebRTCWebView(),
     ),
   );
@@ -35,40 +35,23 @@ class _WebRTCWebViewState extends State<WebRTCWebView> {
     );
   }
 
-  void _onMessageReceived(JavaScriptMessage message) {
-    debugPrint(message.message);
-  }
-
   Future<void> _loadHtml() async {
-    final html = await rootBundle.loadString('assets/index.html');
-    final sdkJs = await rootBundle.loadString('assets/sdk.js');
-    final mainJs = await rootBundle.loadString('assets/main.js');
-    final css = await rootBundle.loadString('assets/style.css');
-    final webSpeechJs = await rootBundle.loadString('assets/webSpeechAPI.js');
+    final htmlString = await rootBundle.loadString('assets/index.html');
+    final cssString = await rootBundle.loadString('assets/style-agents.css');
+    final jsString = await rootBundle.loadString('assets/agents-client-api.js');
+    final jsonString = await rootBundle.loadString('assets/api.json');
 
-    final modifiedHtml = html
+    final modifiedHtml = htmlString
+        .replaceFirst('<link rel="stylesheet" href="style-agents.css">',
+            '<style>$cssString</style>')
         .replaceFirst(
-          '<link rel="stylesheet" href="style.css">',
-          '<style>$css</style>',
-        )
-        .replaceFirst(
-          '<script src="sdk.js"></script>',
-          '<script>$sdkJs</script>',
-        )
-        .replaceFirst(
-      '<script src="main.js"></script>',
-      '''
-    <script>
-      (async () => {
-        ${mainJs.replaceFirst('let agentManager = await sdk.createAgentManager', 'window.agentManager = await sdk.createAgentManager')}
-      })();
-    </script>
-    ''',
-    ).replaceFirst(
-      '<script src="webSpeechAPI.js"></script>',
-      '<script>$webSpeechJs</script>',
-    );
+            '<script type="module" src="./agents-client-api.js"></script>', '''
+      <script type="module">
+        window.APP_CONFIG = ${jsonString};
+        ${jsString}
+      </script>
+      ''');
 
-    await _controller.loadHtmlString(modifiedHtml);
+    _controller.loadHtmlString(modifiedHtml);
   }
 }
