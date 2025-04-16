@@ -1,13 +1,14 @@
 'use strict';
+
 const config = window.APP_CONFIG;
 const DID_API = {
-  key: config.key,
   url: config.url,
-  service: config.service,
-  elevenlabsApiKey: config.elevenlabsApiKey
+  key: config.key,
+  agentId: config.agentId,
+  chatId: config.chatId
 };
 
-if (DID_API.key == '') alert('Please put your api key inside ./api.json and restart..');
+if (DID_API.key === '') alert('Please provide api key and restart..');
 
 const RTCPeerConnection = (
   window.RTCPeerConnection ||
@@ -37,10 +38,10 @@ const chatIdLabel = document.getElementById('chatId-label');
 const textArea = document.getElementById('textArea');
 
 // Play the idle video when the page is loaded
-window.onload = (event) => {
+window.onload = () => {
   playIdleVideo();
 
-  if (agentId == '' || agentId == undefined) {
+  if (agentId === '' || agentId === undefined) {
     console.log(
       'Empty \'agentID\' and \'chatID\' variables\n\n1. Click on the \'Create new Agent with Knowledge\' button\n2. Open the Console and wait for the process to complete\n3. Press on the \'Connect\' button\n4. Type and send a message to the chat\nNOTE: You can store the created \'agentID\' and \'chatId\' variables at the bottom of the JS file for future chats'
     );
@@ -90,13 +91,9 @@ async function createPeerConnection(offer, iceServers) {
     if (msg.includes(msgType)) {
       msg = decodeURIComponent(msg.replace(msgType, ''));
       console.log(msg);
-      decodedMsg = msg;
-      return decodedMsg;
+      document.getElementById('msgHistory').innerHTML += `<span>${msg}</span><br><br>`;
     }
-    if (msg.includes('stream/started')) {
-      console.log(msg);
-      document.getElementById('msgHistory').innerHTML += `<span>${decodedMsg}</span><br><br>`;
-    } else {
+    else {
       console.log(msg);
     }
   };
@@ -118,7 +115,7 @@ function onIceCandidate(event) {
     const { candidate, sdpMid, sdpMLineIndex } = event.candidate;
 
     // WEBRTC API CALL 3 - Submit network information
-    fetch(`${DID_API.url}/${DID_API.service}/${agentId}/streams/${streamId}/ice`, {
+    fetch(`${DID_API.url}/agents/${agentId}/streams/${streamId}/ice`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${DID_API.key}`,
@@ -159,8 +156,7 @@ function onVideoStatusChange(videoIsPlaying, stream) {
   if (videoIsPlaying) {
     status = 'streaming';
 
-    const remoteStream = stream;
-    setVideoElement(remoteStream);
+    setVideoElement(stream);
   } else {
     status = 'empty';
     playIdleVideo();
@@ -169,32 +165,42 @@ function onVideoStatusChange(videoIsPlaying, stream) {
   streamingStatusLabel.className = 'streamingState-' + status;
 }
 
+/**
+* The following code is designed to provide information about wether currently there is data
+* that's being streamed - It does so by periodically looking for changes in total stream data size
+*
+* This information in our case is used in order to show idle video while no video is streaming.
+* To create this idle video use the POST https://api.d-id.com/talks (or clips) endpoint with a silent audio file or a text script with only ssml breaks
+* https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html#break-tag
+* for seamless results use `config.fluent: true` and provide the same configuration as the streaming video
+*/
 function onTrack(event) {
-  /**
-   * The following code is designed to provide information about wether currently there is data
-   * that's being streamed - It does so by periodically looking for changes in total stream data size
-   *
-   * This information in our case is used in order to show idle video while no video is streaming.
-   * To create this idle video use the POST https://api.d-id.com/talks (or clips) endpoint with a silent audio file or a text script with only ssml breaks
-   * https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html#break-tag
-   * for seamless results use `config.fluent: true` and provide the same configuration as the streaming video
-   */
+  if (!event.track || event.track.kind !== 'video') return;
 
-  if (!event.track) return;
+  const track = event.track;
 
   statsIntervalId = setInterval(async () => {
-    const stats = await peerConnection.getStats(event.track);
-    stats.forEach((report) => {
-      if (report.type === 'inbound-rtp' && report.kind === 'video') {
-        const videoStatusChanged = videoIsPlaying !== report.bytesReceived > lastBytesReceived;
+    if (!peerConnection || peerConnection.connectionState === 'closed') {
+      clearInterval(statsIntervalId);
+      statsIntervalId = null;
+      return;
+    }
 
-        if (videoStatusChanged) {
-          videoIsPlaying = report.bytesReceived > lastBytesReceived;
-          onVideoStatusChange(videoIsPlaying, event.streams[0]);
+    try {
+      const stats = await peerConnection.getStats(track);
+      stats.forEach((report) => {
+        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          const isPlaying = report.bytesReceived > lastBytesReceived;
+          if (videoIsPlaying !== isPlaying) {
+            videoIsPlaying = isPlaying;
+            onVideoStatusChange(videoIsPlaying, event.streams[0]);
+          }
+          lastBytesReceived = report.bytesReceived;
         }
-        lastBytesReceived = report.bytesReceived;
-      }
-    });
+      });
+    } catch (err) {
+      console.warn("getStats failed:", err.message);
+    }
   }, 500);
 }
 
@@ -220,7 +226,7 @@ function setVideoElement(stream) {
       .play()
       .then((_) => {
       })
-      .catch((e) => {
+      .catch(() => {
       });
   }
 }
@@ -290,7 +296,7 @@ async function fetchWithRetries(url, options, retries = 1) {
 
 const connectButton = document.getElementById('connect-button');
 connectButton.onclick = async () => {
-  if (agentId == '' || agentId === undefined) {
+  if (agentId === '' || agentId === undefined) {
     return alert(
       '1. Click on the \'Create new Agent with Knowledge\' button\n2. Open the Console and wait for the process to complete\n3. Press on the \'Connect\' button\n4. Type and send a message to the chat\nNOTE: You can store the created \'agentID\' and \'chatId\' variables at the bottom of the JS file for future chats'
     );
@@ -303,7 +309,7 @@ connectButton.onclick = async () => {
   closePC();
 
   // WEBRTC API CALL 1 - Create a new stream
-  const sessionResponse = await fetchWithRetries(`${DID_API.url}/${DID_API.service}/${agentId}/streams`, {
+  const sessionResponse = await fetchWithRetries(`${DID_API.url}/agents/${agentId}/streams`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${DID_API.key}`,
@@ -327,7 +333,7 @@ connectButton.onclick = async () => {
   }
 
   // WEBRTC API CALL 2 - Start a stream
-  const sdpResponse = await fetch(`${DID_API.url}/${DID_API.service}/${agentId}/streams/${streamId}/sdp`, {
+  await fetch(`${DID_API.url}/agents/${agentId}/streams/${streamId}/sdp`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${DID_API.key}`,
@@ -386,7 +392,7 @@ startButton.onclick = async () => {
 
 const destroyButton = document.getElementById('destroy-button');
 destroyButton.onclick = async () => {
-  await fetch(`${DID_API.url}/${DID_API.service}/${agentId}/streams/${streamId}`, {
+  await fetch(`${DID_API.url}/agents/${agentId}/streams/${streamId}`, {
     method: 'DELETE',
     headers: {
       Authorization: `Basic ${DID_API.key}`,
@@ -414,7 +420,7 @@ async function agentsAPIworkflow() {
     const maxDelaySec = 10; // Maximum delay in seconds
     try {
       let response = await axios.get(`${url}`);
-      if (response.data.status == 'done') {
+      if (response.data.status === 'done') {
         return console.log(response.data.id + ': ' + response.data.status);
       } else {
         throw new Error('Status is not \'done\'');
@@ -526,7 +532,6 @@ agentsButton.onclick = async () => {
     console.log(agentsIds);
     agentId = agentsIds.agentId;
     chatId = agentsIds.chatId;
-    return;
   } catch (err) {
     agentIdLabel.innerHTML = `<span style='color:red'>Failed</span>`;
     chatIdLabel.innerHTML = `<span style='color:red'>Failed</span>`;
@@ -535,5 +540,5 @@ agentsButton.onclick = async () => {
 };
 
 // Paste Your Created Agent and Chat IDs Here:
-agentId = "agt_e5PH_Sq7";
-chatId = "cht_AYXv1ih82KyQ8xNJMWXC2";
+agentId = DID_API.agentId;
+chatId = DID_API.chatId;

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -5,20 +7,33 @@ import 'package:webview_flutter/webview_flutter.dart';
 void main() {
   runApp(
     MaterialApp(
-      title: 'D-ID WebRTC Integration',
-      home: WebRTCWebView(),
+      title: 'D-ID avatars integration',
+      home: AvatarStreamingWebView(
+        apiKey: '',
+        agentId: 'agt_ImSdNdOc',
+        chatId: 'cht_HLEN2jQf9Ww7YgmZcNcJm',
+      ),
     ),
   );
 }
 
-class WebRTCWebView extends StatefulWidget {
-  const WebRTCWebView({super.key});
+class AvatarStreamingWebView extends StatefulWidget {
+  final String apiKey;
+  final String agentId;
+  final String? chatId;
+
+  const AvatarStreamingWebView({
+    super.key,
+    required this.apiKey,
+    required this.agentId,
+    this.chatId
+  });
 
   @override
-  State<WebRTCWebView> createState() => _WebRTCWebViewState();
+  State<AvatarStreamingWebView> createState() => _AvatarStreamingWebViewState();
 }
 
-class _WebRTCWebViewState extends State<WebRTCWebView> {
+class _AvatarStreamingWebViewState extends State<AvatarStreamingWebView> {
   late final WebViewController _controller;
 
   @override
@@ -39,16 +54,22 @@ class _WebRTCWebViewState extends State<WebRTCWebView> {
     final htmlString = await rootBundle.loadString('assets/index.html');
     final cssString = await rootBundle.loadString('assets/style-agents.css');
     final jsString = await rootBundle.loadString('assets/agents-client-api.js');
-    final jsonString = await rootBundle.loadString('assets/api.json');
+
+    final config = jsonEncode({
+      "url": "https://api.d-id.com",
+      "key": widget.apiKey,
+      "agentId": widget.agentId,
+      "chatId": widget.chatId ?? ''
+    });
 
     final modifiedHtml = htmlString
         .replaceFirst('<link rel="stylesheet" href="style-agents.css">',
-            '<style>$cssString</style>')
+        '<style>$cssString</style>')
         .replaceFirst(
-            '<script type="module" src="./agents-client-api.js"></script>', '''
+        '<script type="module" src="./agents-client-api.js"></script>', '''
       <script type="module">
-        window.APP_CONFIG = ${jsonString};
-        ${jsString}
+        window.APP_CONFIG = $config;
+        $jsString
       </script>
       ''');
 

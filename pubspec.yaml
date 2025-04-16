@@ -56,7 +56,6 @@ flutter:
   assets:
     - assets/index.html
     - assets/style-agents.css
-    - assets/api.json
     - assets/agents-client-api.js
 
   # The following line ensures that the Material Icons font is
