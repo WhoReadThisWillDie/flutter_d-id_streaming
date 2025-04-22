@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 void main() {
@@ -9,7 +8,7 @@ void main() {
     MaterialApp(
       title: 'D-ID avatars integration',
       home: AvatarStreamingWebView(
-        apiKey: 'bXNhZGtvZmZAbWFpbC5ydQ:-QWK5Nk4IrJz6UzZu-Qzi',
+        apiKey: '',
         url: 'https://api.d-id.com',
         agentId: 'agt_ImSdNdOc',
         chatId: 'cht_HLEN2jQf9Ww7YgmZcNcJm',
@@ -42,15 +41,24 @@ class _AvatarStreamingWebViewState extends State<AvatarStreamingWebView> {
   @override
   Widget build(BuildContext context) {
     return InAppWebView(
-      initialSettings: InAppWebViewSettings(
-        javaScriptEnabled: true,
-      ),
-      onWebViewCreated: (controller) async {
-        _webViewController = controller;
-        await _loadHtml();
-      },
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+        ),
+        onWebViewCreated: (controller) async {
+          _webViewController = controller;
+          await _loadHtml();
+          debugPrint('webview created');
+        },
+        onLoadStart: (controller, url) {
+          debugPrint('load started');
+        },
+        onLoadStop: (controller, url) {
+          debugPrint('load stopped');
+          _onLoadStop();
+        }
     );
   }
+
 
   @override
   void dispose() {
@@ -59,29 +67,16 @@ class _AvatarStreamingWebViewState extends State<AvatarStreamingWebView> {
   }
 
   Future<void> _loadHtml() async {
-    final htmlString = await rootBundle.loadString('assets/index.html');
-    final jsString = await rootBundle.loadString('assets/agents-client-api.js');
+    await _webViewController.loadFile(assetFilePath: 'assets/index.html');
+  }
 
+  void _onLoadStop() async {
     final config = jsonEncode({
       "url": widget.url,
       "key": widget.apiKey,
       "agentId": widget.agentId,
       "chatId": widget.chatId ?? ''
     });
-  final modifiedHtml = htmlString.replaceFirst(
-    '<script type="module" src="agents-client-api.js"></script>',
-    '''
-    <script type="module">
-      window.APP_CONFIG = $config;
-      $jsString
-    </script>
-    ''',
-  );
-
-  await _webViewController.loadData(
-    data: modifiedHtml,
-    mimeType: 'text/html',
-    encoding: 'utf-8',
-  );
-}
+    _webViewController.evaluateJavascript(source: 'initChat($config)');
+  }
 }

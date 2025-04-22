@@ -1,14 +1,11 @@
 'use strict';
 
-const config = window.APP_CONFIG;
-const DID_API = {
-  url: config.url,
-  key: config.key,
-  agentId: config.agentId,
-  chatId: config.chatId
+let DID_API = {
+  key: '',
+  url: '',
+  agentId: '',
+  chatId: ''
 };
-
-if (DID_API.key === '') alert('Please provide api key and restart..');
 
 const RTCPeerConnection = (
   window.RTCPeerConnection ||
@@ -37,25 +34,56 @@ const agentIdLabel = document.getElementById('agentId-label');
 const chatIdLabel = document.getElementById('chatId-label');
 const textArea = document.getElementById('textArea');
 
-// Play the idle video when the page is loaded
-window.onload = () => {
-  playIdleVideo();
 
-  if (agentId === '' || agentId === undefined) {
-    console.log(
-      'Empty \'agentID\' and \'chatID\' variables\n\n1. Click on the \'Create new Agent with Knowledge\' button\n2. Open the Console and wait for the process to complete\n3. Press on the \'Connect\' button\n4. Type and send a message to the chat\nNOTE: You can store the created \'agentID\' and \'chatId\' variables at the bottom of the JS file for future chats'
-    );
-  } else {
-    console.log(
-      'You are good to go!\nClick on the \'Connect Button\', Then send a new message\nAgent ID: ',
-      agentId,
-      '\nChat ID: ',
-      chatId
-    );
-    agentIdLabel.innerHTML = agentId;
-    chatIdLabel.innerHTML = chatId;
-  }
-};
+const connectButton = document.getElementById('connect-button');
+const startButton = document.getElementById('start-button');
+const destroyButton = document.getElementById('destroy-button');
+const agentsButton = document.getElementById('agents-button');
+connectButton.onclick = connectHandler;
+startButton.onclick = startHandler;
+destroyButton.onclick = destroyHandler;
+agentsButton.onclick = agentsHandler;
+
+
+async function initChat(config) {
+  console.log('initChat called');
+
+  DID_API = {
+    url: config.url,
+    key: config.key,
+    agentId: config.agentId,
+    chatId: config.chatId
+  };
+
+  if (DID_API.key === '') alert('Please provide api key and restart..');
+
+  // Set initial agent and chat IDs
+  agentId = DID_API.agentId;
+  chatId = DID_API.chatId;
+
+  // Play the idle video when the page is loaded
+  window.onload = () => {
+    playIdleVideo();
+
+    if (agentId === '' || agentId === undefined) {
+      console.log(
+        'Empty \'agentID\' and \'chatID\' variables\n\n1. Click on the \'Create new Agent with Knowledge\' button\n2. Open the Console and wait for the process to complete\n3. Press on the \'Connect\' button\n4. Type and send a message to the chat\nNOTE: You can store the created \'agentID\' and \'chatId\' variables at the bottom of the JS file for future chats'
+      );
+    } else {
+      console.log(
+        'You are good to go!\nClick on the \'Connect Button\', Then send a new message\nAgent ID: ',
+        agentId,
+        '\nChat ID: ',
+        chatId
+      );
+      agentIdLabel.innerHTML = agentId;
+      chatIdLabel.innerHTML = chatId;
+    }
+  };
+
+  // Set up button event listeners
+
+}
 
 async function createPeerConnection(offer, iceServers) {
   if (!peerConnection) {
@@ -83,7 +111,6 @@ async function createPeerConnection(offer, iceServers) {
     console.log('datachannel open');
   };
 
-  let decodedMsg;
   // Agent Text Responses - Decoding the responses, pasting to the HTML element
   dc.onmessage = (event) => {
     let msg = event.data;
@@ -166,14 +193,14 @@ function onVideoStatusChange(videoIsPlaying, stream) {
 }
 
 /**
-* The following code is designed to provide information about wether currently there is data
-* that's being streamed - It does so by periodically looking for changes in total stream data size
-*
-* This information in our case is used in order to show idle video while no video is streaming.
-* To create this idle video use the POST https://api.d-id.com/talks (or clips) endpoint with a silent audio file or a text script with only ssml breaks
-* https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html#break-tag
-* for seamless results use `config.fluent: true` and provide the same configuration as the streaming video
-*/
+ * The following code is designed to provide information about wether currently there is data
+ * that's being streamed - It does so by periodically looking for changes in total stream data size
+ *
+ * This information in our case is used in order to show idle video while no video is streaming.
+ * To create this idle video use the POST https://api.d-id.com/talks (or clips) endpoint with a silent audio file or a text script with only ssml breaks
+ * https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html#break-tag
+ * for seamless results use `config.fluent: true` and provide the same configuration as the streaming video
+ */
 function onTrack(event) {
   if (!event.track || event.track.kind !== 'video') return;
 
@@ -294,8 +321,7 @@ async function fetchWithRetries(url, options, retries = 1) {
   }
 }
 
-const connectButton = document.getElementById('connect-button');
-connectButton.onclick = async () => {
+async function connectHandler(){
   if (agentId === '' || agentId === undefined) {
     return alert(
       '1. Click on the \'Create new Agent with Knowledge\' button\n2. Open the Console and wait for the process to complete\n3. Press on the \'Connect\' button\n4. Type and send a message to the chat\nNOTE: You can store the created \'agentID\' and \'chatId\' variables at the bottom of the JS file for future chats'
@@ -344,10 +370,9 @@ connectButton.onclick = async () => {
       session_id: sessionId
     })
   });
-};
+}
 
-const startButton = document.getElementById('start-button');
-startButton.onclick = async () => {
+async function startHandler() {
   // connectionState not supported in firefox
   if (peerConnection?.signalingState === 'stable' || peerConnection?.iceConnectionState === 'connected') {
     // Pasting the user's message to the Chat History element
@@ -388,10 +413,9 @@ startButton.onclick = async () => {
       ).innerHTML += `<span style='opacity:0.5'> ${playResponseData.result}</span><br>`;
     }
   }
-};
+}
 
-const destroyButton = document.getElementById('destroy-button');
-destroyButton.onclick = async () => {
+async function destroyHandler() {
   await fetch(`${DID_API.url}/agents/${agentId}/streams/${streamId}`, {
     method: 'DELETE',
     headers: {
@@ -525,8 +549,7 @@ async function agentsAPIworkflow() {
   return { agentId: agentId, chatId: chatId };
 }
 
-const agentsButton = document.getElementById('agents-button');
-agentsButton.onclick = async () => {
+async function agentsHandler() {
   try {
     const agentsIds = ({} = await agentsAPIworkflow());
     console.log(agentsIds);
@@ -537,7 +560,7 @@ agentsButton.onclick = async () => {
     chatIdLabel.innerHTML = `<span style='color:red'>Failed</span>`;
     throw new Error(err);
   }
-};
+}
 
 // Paste Your Created Agent and Chat IDs Here:
 agentId = DID_API.agentId;
