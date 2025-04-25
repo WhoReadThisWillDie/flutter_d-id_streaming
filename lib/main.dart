@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 void main() {
@@ -41,24 +42,18 @@ class _AvatarStreamingWebViewState extends State<AvatarStreamingWebView> {
   @override
   Widget build(BuildContext context) {
     return InAppWebView(
-        initialSettings: InAppWebViewSettings(
-          javaScriptEnabled: true,
-        ),
-        onWebViewCreated: (controller) async {
-          _webViewController = controller;
-          await _loadHtml();
-          debugPrint('webview created');
-        },
-        onLoadStart: (controller, url) {
-          debugPrint('load started');
-        },
-        onLoadStop: (controller, url) {
-          debugPrint('load stopped');
-          _onLoadStop();
-        }
+      initialSettings: InAppWebViewSettings(
+        javaScriptEnabled: true,
+      ),
+      onWebViewCreated: (controller) async {
+        _webViewController = controller;
+        _loadHtml();
+      },
+      onLoadStop: (controller, url) async {
+        _onLoadStop();
+      }
     );
   }
-
 
   @override
   void dispose() {
@@ -66,7 +61,7 @@ class _AvatarStreamingWebViewState extends State<AvatarStreamingWebView> {
     _webViewController.dispose();
   }
 
-  Future<void> _loadHtml() async {
+  void _loadHtml() async {
     await _webViewController.loadFile(assetFilePath: 'assets/index.html');
   }
 
@@ -77,6 +72,6 @@ class _AvatarStreamingWebViewState extends State<AvatarStreamingWebView> {
       "agentId": widget.agentId,
       "chatId": widget.chatId ?? ''
     });
-    _webViewController.evaluateJavascript(source: 'initChat($config)');
+    await _webViewController.evaluateJavascript(source: 'initChat($config)');
   }
 }
